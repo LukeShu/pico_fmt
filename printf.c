@@ -47,52 +47,52 @@
 // 'ntoa' conversion buffer size, this must be big enough to hold one converted
 // numeric number including padded zeros (dynamically created on stack)
 // default: 32 byte
-#ifndef PRINTF_NTOA_BUFFER_SIZE
-#define PRINTF_NTOA_BUFFER_SIZE    32U
+#ifndef PICO_PRINTF_NTOA_BUFFER_SIZE
+#define PICO_PRINTF_NTOA_BUFFER_SIZE    32U
 #endif
 
 // 'ftoa' conversion buffer size, this must be big enough to hold one converted
 // float number including padded zeros (dynamically created on stack)
 // default: 32 byte
-#ifndef PRINTF_FTOA_BUFFER_SIZE
-#define PRINTF_FTOA_BUFFER_SIZE    32U
+#ifndef PICO_PRINTF_FTOA_BUFFER_SIZE
+#define PICO_PRINTF_FTOA_BUFFER_SIZE    32U
 #endif
 
 // support for the floating point type (%f)
 // default: activated
-#ifndef PRINTF_DISABLE_SUPPORT_FLOAT
-#define PRINTF_SUPPORT_FLOAT
+#ifndef PICO_PRINTF_DISABLE_SUPPORT_FLOAT
+#define PICO_PRINTF_SUPPORT_FLOAT
 #endif
 
 // support for exponential floating point notation (%e/%g)
 // default: activated
-#ifndef PRINTF_DISABLE_SUPPORT_EXPONENTIAL
-#define PRINTF_SUPPORT_EXPONENTIAL
+#ifndef PICO_PRINTF_DISABLE_SUPPORT_EXPONENTIAL
+#define PICO_PRINTF_SUPPORT_EXPONENTIAL
 #endif
 
 // define the default floating point precision
 // default: 6 digits
-#ifndef PRINTF_DEFAULT_FLOAT_PRECISION
-#define PRINTF_DEFAULT_FLOAT_PRECISION  6U
+#ifndef PICO_PRINTF_DEFAULT_FLOAT_PRECISION
+#define PICO_PRINTF_DEFAULT_FLOAT_PRECISION  6U
 #endif
 
 // define the largest float suitable to print with %f
 // default: 1e9
-#ifndef PRINTF_MAX_FLOAT
-#define PRINTF_MAX_FLOAT  1e9
+#ifndef PICO_PRINTF_MAX_FLOAT
+#define PICO_PRINTF_MAX_FLOAT  1e9
 #endif
 
 // support for the long long types (%llu or %p)
 // default: activated
-#ifndef PRINTF_DISABLE_SUPPORT_LONG_LONG
-#define PRINTF_SUPPORT_LONG_LONG
+#ifndef PICO_PRINTF_DISABLE_SUPPORT_LONG_LONG
+#define PICO_PRINTF_SUPPORT_LONG_LONG
 #endif
 
 // support for the ptrdiff_t type (%t)
 // ptrdiff_t is normally defined in <stddef.h> as long or long long type
 // default: activated
-#ifndef PRINTF_DISABLE_SUPPORT_PTRDIFF_T
-#define PRINTF_SUPPORT_PTRDIFF_T
+#ifndef PICO_PRINTF_DISABLE_SUPPORT_PTRDIFF_T
+#define PICO_PRINTF_SUPPORT_PTRDIFF_T
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -113,7 +113,7 @@
 
 
 // import float.h for DBL_MAX
-#if defined(PRINTF_SUPPORT_FLOAT)
+#if defined(PICO_PRINTF_SUPPORT_FLOAT)
 #include <float.h>
 #endif
 
@@ -231,10 +231,10 @@ static size_t _ntoa_format(out_fct_type out, char* buffer, size_t idx, size_t ma
     if (width && (flags & FLAGS_ZEROPAD) && (negative || (flags & (FLAGS_PLUS | FLAGS_SPACE)))) {
       width--;
     }
-    while ((len < prec) && (len < PRINTF_NTOA_BUFFER_SIZE)) {
+    while ((len < prec) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
       buf[len++] = '0';
     }
-    while ((flags & FLAGS_ZEROPAD) && (len < width) && (len < PRINTF_NTOA_BUFFER_SIZE)) {
+    while ((flags & FLAGS_ZEROPAD) && (len < width) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
       buf[len++] = '0';
     }
   }
@@ -247,21 +247,21 @@ static size_t _ntoa_format(out_fct_type out, char* buffer, size_t idx, size_t ma
         len--;
       }
     }
-    if ((base == 16U) && !(flags & FLAGS_UPPERCASE) && (len < PRINTF_NTOA_BUFFER_SIZE)) {
+    if ((base == 16U) && !(flags & FLAGS_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
       buf[len++] = 'x';
     }
-    else if ((base == 16U) && (flags & FLAGS_UPPERCASE) && (len < PRINTF_NTOA_BUFFER_SIZE)) {
+    else if ((base == 16U) && (flags & FLAGS_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
       buf[len++] = 'X';
     }
-    else if ((base == 2U) && (len < PRINTF_NTOA_BUFFER_SIZE)) {
+    else if ((base == 2U) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
       buf[len++] = 'b';
     }
-    if (len < PRINTF_NTOA_BUFFER_SIZE) {
+    if (len < PICO_PRINTF_NTOA_BUFFER_SIZE) {
       buf[len++] = '0';
     }
   }
 
-  if (len < PRINTF_NTOA_BUFFER_SIZE) {
+  if (len < PICO_PRINTF_NTOA_BUFFER_SIZE) {
     if (negative) {
       buf[len++] = '-';
     }
@@ -280,7 +280,7 @@ static size_t _ntoa_format(out_fct_type out, char* buffer, size_t idx, size_t ma
 // internal itoa for 'long' type
 static size_t _ntoa_long(out_fct_type out, char* buffer, size_t idx, size_t maxlen, unsigned long value, bool negative, unsigned long base, unsigned int prec, unsigned int width, unsigned int flags)
 {
-  char buf[PRINTF_NTOA_BUFFER_SIZE];
+  char buf[PICO_PRINTF_NTOA_BUFFER_SIZE];
   size_t len = 0U;
 
   // no hash for 0 values
@@ -294,7 +294,7 @@ static size_t _ntoa_long(out_fct_type out, char* buffer, size_t idx, size_t maxl
       const char digit = (char)(value % base);
       buf[len++] = digit < 10 ? '0' + digit : (flags & FLAGS_UPPERCASE ? 'A' : 'a') + digit - 10;
       value /= base;
-    } while (value && (len < PRINTF_NTOA_BUFFER_SIZE));
+    } while (value && (len < PICO_PRINTF_NTOA_BUFFER_SIZE));
   }
 
   return _ntoa_format(out, buffer, idx, maxlen, buf, len, negative, (unsigned int)base, prec, width, flags);
@@ -302,10 +302,10 @@ static size_t _ntoa_long(out_fct_type out, char* buffer, size_t idx, size_t maxl
 
 
 // internal itoa for 'long long' type
-#if defined(PRINTF_SUPPORT_LONG_LONG)
+#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
 static size_t _ntoa_long_long(out_fct_type out, char* buffer, size_t idx, size_t maxlen, unsigned long long value, bool negative, unsigned long long base, unsigned int prec, unsigned int width, unsigned int flags)
 {
-  char buf[PRINTF_NTOA_BUFFER_SIZE];
+  char buf[PICO_PRINTF_NTOA_BUFFER_SIZE];
   size_t len = 0U;
 
   // no hash for 0 values
@@ -319,18 +319,18 @@ static size_t _ntoa_long_long(out_fct_type out, char* buffer, size_t idx, size_t
       const char digit = (char)(value % base);
       buf[len++] = digit < 10 ? '0' + digit : (flags & FLAGS_UPPERCASE ? 'A' : 'a') + digit - 10;
       value /= base;
-    } while (value && (len < PRINTF_NTOA_BUFFER_SIZE));
+    } while (value && (len < PICO_PRINTF_NTOA_BUFFER_SIZE));
   }
 
   return _ntoa_format(out, buffer, idx, maxlen, buf, len, negative, (unsigned int)base, prec, width, flags);
 }
-#endif  // PRINTF_SUPPORT_LONG_LONG
+#endif  // PICO_PRINTF_SUPPORT_LONG_LONG
 
 
-#if defined(PRINTF_SUPPORT_FLOAT)
+#if defined(PICO_PRINTF_SUPPORT_FLOAT)
 
-#if defined(PRINTF_SUPPORT_EXPONENTIAL)
-// forward declaration so that _ftoa can switch to exp notation for values > PRINTF_MAX_FLOAT
+#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
+// forward declaration so that _ftoa can switch to exp notation for values > PICO_PRINTF_MAX_FLOAT
 static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, double value, unsigned int prec, unsigned int width, unsigned int flags);
 #endif
 
@@ -338,7 +338,7 @@ static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
 // internal ftoa for fixed decimal floating point
 static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, double value, unsigned int prec, unsigned int width, unsigned int flags)
 {
-  char buf[PRINTF_FTOA_BUFFER_SIZE];
+  char buf[PICO_PRINTF_FTOA_BUFFER_SIZE];
   size_t len  = 0U;
   double diff = 0.0;
 
@@ -355,8 +355,8 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
 
   // test for very large values
   // standard printf behavior is to print EVERY whole number digit -- which could be 100s of characters overflowing your buffers == bad
-  if ((value > PRINTF_MAX_FLOAT) || (value < -PRINTF_MAX_FLOAT)) {
-#if defined(PRINTF_SUPPORT_EXPONENTIAL)
+  if ((value > PICO_PRINTF_MAX_FLOAT) || (value < -PICO_PRINTF_MAX_FLOAT)) {
+#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
     return _etoa(out, buffer, idx, maxlen, value, prec, width, flags);
 #else
     return 0U;
@@ -372,10 +372,10 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
 
   // set default precision, if not set explicitly
   if (!(flags & FLAGS_PRECISION)) {
-    prec = PRINTF_DEFAULT_FLOAT_PRECISION;
+    prec = PICO_PRINTF_DEFAULT_FLOAT_PRECISION;
   }
   // limit precision to 9, cause a prec >= 10 can lead to overflow errors
-  while ((len < PRINTF_FTOA_BUFFER_SIZE) && (prec > 9U)) {
+  while ((len < PICO_PRINTF_FTOA_BUFFER_SIZE) && (prec > 9U)) {
     buf[len++] = '0';
     prec--;
   }
@@ -411,7 +411,7 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
   else {
     unsigned int count = prec;
     // now do fractional part, as an unsigned number
-    while (len < PRINTF_FTOA_BUFFER_SIZE) {
+    while (len < PICO_PRINTF_FTOA_BUFFER_SIZE) {
       --count;
       buf[len++] = (char)(48U + (frac % 10U));
       if (!(frac /= 10U)) {
@@ -419,17 +419,17 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
       }
     }
     // add extra 0s
-    while ((len < PRINTF_FTOA_BUFFER_SIZE) && (count-- > 0U)) {
+    while ((len < PICO_PRINTF_FTOA_BUFFER_SIZE) && (count-- > 0U)) {
       buf[len++] = '0';
     }
-    if (len < PRINTF_FTOA_BUFFER_SIZE) {
+    if (len < PICO_PRINTF_FTOA_BUFFER_SIZE) {
       // add decimal
       buf[len++] = '.';
     }
   }
 
   // do whole part, number is reversed
-  while (len < PRINTF_FTOA_BUFFER_SIZE) {
+  while (len < PICO_PRINTF_FTOA_BUFFER_SIZE) {
     buf[len++] = (char)(48 + (whole % 10));
     if (!(whole /= 10)) {
       break;
@@ -441,12 +441,12 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
     if (width && (negative || (flags & (FLAGS_PLUS | FLAGS_SPACE)))) {
       width--;
     }
-    while ((len < width) && (len < PRINTF_FTOA_BUFFER_SIZE)) {
+    while ((len < width) && (len < PICO_PRINTF_FTOA_BUFFER_SIZE)) {
       buf[len++] = '0';
     }
   }
 
-  if (len < PRINTF_FTOA_BUFFER_SIZE) {
+  if (len < PICO_PRINTF_FTOA_BUFFER_SIZE) {
     if (negative) {
       buf[len++] = '-';
     }
@@ -462,7 +462,7 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
 }
 
 
-#if defined(PRINTF_SUPPORT_EXPONENTIAL)
+#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
 // internal ftoa variant for exponential floating-point type, contributed by Martijn Jasperse <m.jasperse@gmail.com>
 static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, double value, unsigned int prec, unsigned int width, unsigned int flags)
 {
@@ -479,7 +479,7 @@ static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
 
   // default precision
   if (!(flags & FLAGS_PRECISION)) {
-    prec = PRINTF_DEFAULT_FLOAT_PRECISION;
+    prec = PICO_PRINTF_DEFAULT_FLOAT_PRECISION;
   }
 
   // determine the decimal exponent
@@ -569,8 +569,8 @@ static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
   }
   return idx;
 }
-#endif  // PRINTF_SUPPORT_EXPONENTIAL
-#endif  // PRINTF_SUPPORT_FLOAT
+#endif  // PICO_PRINTF_SUPPORT_EXPONENTIAL
+#endif  // PICO_PRINTF_SUPPORT_FLOAT
 
 
 // internal vsnprintf
@@ -661,7 +661,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
           format++;
         }
         break;
-#if defined(PRINTF_SUPPORT_PTRDIFF_T)
+#if defined(PICO_PRINTF_SUPPORT_PTRDIFF_T)
       case 't' :
         flags |= (sizeof(ptrdiff_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
         format++;
@@ -722,7 +722,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         if ((*format == 'i') || (*format == 'd')) {
           // signed
           if (flags & FLAGS_LONG_LONG) {
-#if defined(PRINTF_SUPPORT_LONG_LONG)
+#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
             const long long value = va_arg(va, long long);
             idx = _ntoa_long_long(out, buffer, idx, maxlen, (unsigned long long)(value > 0 ? value : 0 - value), value < 0, base, precision, width, flags);
 #endif
@@ -739,7 +739,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         else {
           // unsigned
           if (flags & FLAGS_LONG_LONG) {
-#if defined(PRINTF_SUPPORT_LONG_LONG)
+#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
             idx = _ntoa_long_long(out, buffer, idx, maxlen, va_arg(va, unsigned long long), false, base, precision, width, flags);
 #endif
           }
@@ -754,14 +754,14 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         format++;
         break;
       }
-#if defined(PRINTF_SUPPORT_FLOAT)
+#if defined(PICO_PRINTF_SUPPORT_FLOAT)
       case 'f' :
       case 'F' :
         if (*format == 'F') flags |= FLAGS_UPPERCASE;
         idx = _ftoa(out, buffer, idx, maxlen, va_arg(va, double), precision, width, flags);
         format++;
         break;
-#if defined(PRINTF_SUPPORT_EXPONENTIAL)
+#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
       case 'e':
       case 'E':
       case 'g':
@@ -771,8 +771,8 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         idx = _etoa(out, buffer, idx, maxlen, va_arg(va, double), precision, width, flags);
         format++;
         break;
-#endif  // PRINTF_SUPPORT_EXPONENTIAL
-#endif  // PRINTF_SUPPORT_FLOAT
+#endif  // PICO_PRINTF_SUPPORT_EXPONENTIAL
+#endif  // PICO_PRINTF_SUPPORT_FLOAT
       case 'c' : {
         unsigned int l = 1U;
         // pre padding
@@ -822,7 +822,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
       case 'p' : {
         width = sizeof(void*) * 2U;
         flags |= FLAGS_ZEROPAD | FLAGS_UPPERCASE;
-#if defined(PRINTF_SUPPORT_LONG_LONG)
+#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
         const bool is_ll = sizeof(uintptr_t) == sizeof(long long);
         if (is_ll) {
           idx = _ntoa_long_long(out, buffer, idx, maxlen, (uintptr_t)va_arg(va, void*), false, 16U, precision, width, flags);
@@ -830,7 +830,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         else {
 #endif
           idx = _ntoa_long(out, buffer, idx, maxlen, (unsigned long)((uintptr_t)va_arg(va, void*)), false, 16U, precision, width, flags);
-#if defined(PRINTF_SUPPORT_LONG_LONG)
+#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
         }
 #endif
         format++;
