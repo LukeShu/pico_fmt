@@ -60,13 +60,13 @@
 // support for the floating point type (%f)
 // default: activated
 #ifndef PICO_PRINTF_DISABLE_SUPPORT_FLOAT
-#define PICO_PRINTF_SUPPORT_FLOAT
+#define PICO_PRINTF_SUPPORT_FLOAT 1
 #endif
 
 // support for exponential floating point notation (%e/%g)
 // default: activated
 #ifndef PICO_PRINTF_DISABLE_SUPPORT_EXPONENTIAL
-#define PICO_PRINTF_SUPPORT_EXPONENTIAL
+#define PICO_PRINTF_SUPPORT_EXPONENTIAL 1
 #endif
 
 // define the default floating point precision
@@ -84,14 +84,14 @@
 // support for the long long types (%llu or %p)
 // default: activated
 #ifndef PICO_PRINTF_DISABLE_SUPPORT_LONG_LONG
-#define PICO_PRINTF_SUPPORT_LONG_LONG
+#define PICO_PRINTF_SUPPORT_LONG_LONG 1
 #endif
 
 // support for the ptrdiff_t type (%t)
 // ptrdiff_t is normally defined in <stddef.h> as long or long long type
 // default: activated
 #ifndef PICO_PRINTF_DISABLE_SUPPORT_PTRDIFF_T
-#define PICO_PRINTF_SUPPORT_PTRDIFF_T
+#define PICO_PRINTF_SUPPORT_PTRDIFF_T 1
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -111,7 +111,7 @@
 #define FLAGS_ADAPT_EXP (1U << 11U)
 
 // import float.h for DBL_MAX
-#if defined(PICO_PRINTF_SUPPORT_FLOAT)
+#if PICO_PRINTF_SUPPORT_FLOAT
 
 #include <float.h>
 
@@ -293,7 +293,7 @@ static size_t _ntoa_long(out_fct_type out, char* buffer, size_t idx, size_t maxl
 
 
 // internal itoa for 'long long' type
-#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
+#if PICO_PRINTF_SUPPORT_LONG_LONG
 
 static size_t _ntoa_long_long(out_fct_type out, char* buffer, size_t idx, size_t maxlen, unsigned long long value,
                               bool negative, unsigned long long base, unsigned int prec, unsigned int width,
@@ -321,9 +321,9 @@ static size_t _ntoa_long_long(out_fct_type out, char* buffer, size_t idx, size_t
 #endif  // PICO_PRINTF_SUPPORT_LONG_LONG
 
 
-#if defined(PICO_PRINTF_SUPPORT_FLOAT)
+#if PICO_PRINTF_SUPPORT_FLOAT
 
-#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
+#if PICO_PRINTF_SUPPORT_EXPONENTIAL
 // forward declaration so that _ftoa can switch to exp notation for values > PICO_PRINTF_MAX_FLOAT
 static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, double value, unsigned int prec,
                     unsigned int width, unsigned int flags);
@@ -352,7 +352,7 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
   // test for very large values
   // standard printf behavior is to print EVERY whole number digit -- which could be 100s of characters overflowing your buffers == bad
   if ((value > PICO_PRINTF_MAX_FLOAT) || (value < -PICO_PRINTF_MAX_FLOAT)) {
-#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
+#if PICO_PRINTF_SUPPORT_EXPONENTIAL
     return _etoa(out, buffer, idx, maxlen, value, prec, width, flags);
 #else
     return 0U;
@@ -453,7 +453,7 @@ static size_t _ftoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, d
 }
 
 
-#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
+#if PICO_PRINTF_SUPPORT_EXPONENTIAL
 
 // internal ftoa variant for exponential floating-point type, contributed by Martijn Jasperse <m.jasperse@gmail.com>
 static size_t _etoa(out_fct_type out, char* buffer, size_t idx, size_t maxlen, double value, unsigned int prec,
@@ -668,7 +668,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
           format++;
         }
         break;
-#if defined(PICO_PRINTF_SUPPORT_PTRDIFF_T)
+#if PICO_PRINTF_SUPPORT_PTRDIFF_T
       case 't' :
         flags |= (sizeof(ptrdiff_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
         format++;
@@ -726,7 +726,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         if ((*format == 'i') || (*format == 'd')) {
           // signed
           if (flags & FLAGS_LONG_LONG) {
-#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
+#if PICO_PRINTF_SUPPORT_LONG_LONG
             const long long value = va_arg(va, long long);
             idx = _ntoa_long_long(out, buffer, idx, maxlen,
                                   (unsigned long long)(value > 0 ? value : 0 - value), value < 0, base,
@@ -746,7 +746,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         } else {
           // unsigned
           if (flags & FLAGS_LONG_LONG) {
-#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
+#if PICO_PRINTF_SUPPORT_LONG_LONG
             idx = _ntoa_long_long(out, buffer, idx, maxlen, va_arg(va, unsigned long long), false, base,
                                   precision, width, flags);
 #endif
@@ -765,14 +765,14 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         format++;
         break;
       }
-#if defined(PICO_PRINTF_SUPPORT_FLOAT)
+#if PICO_PRINTF_SUPPORT_FLOAT
       case 'f' :
       case 'F' :
         if (*format == 'F') flags |= FLAGS_UPPERCASE;
         idx = _ftoa(out, buffer, idx, maxlen, va_arg(va, double), precision, width, flags);
         format++;
         break;
-#if defined(PICO_PRINTF_SUPPORT_EXPONENTIAL)
+#if PICO_PRINTF_SUPPORT_EXPONENTIAL
       case 'e':
       case 'E':
       case 'g':
@@ -833,7 +833,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
       case 'p' : {
         width = sizeof(void*) * 2U;
         flags |= FLAGS_ZEROPAD | FLAGS_UPPERCASE;
-#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
+#if PICO_PRINTF_SUPPORT_LONG_LONG
         const bool is_ll = sizeof(uintptr_t) == sizeof(long long);
         if (is_ll) {
           idx = _ntoa_long_long(out, buffer, idx, maxlen, (uintptr_t)va_arg(va, void*), false, 16U,
@@ -842,7 +842,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
 #endif
           idx = _ntoa_long(out, buffer, idx, maxlen, (unsigned long)((uintptr_t)va_arg(va, void*)), false,
                            16U, precision, width, flags);
-#if defined(PICO_PRINTF_SUPPORT_LONG_LONG)
+#if PICO_PRINTF_SUPPORT_LONG_LONG
         }
 #endif
         format++;
