@@ -32,65 +32,55 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
-#include "printf.h"
+#include "pico/platform.h"
+#include "pico/printf.h"
 
-// define this globally (e.g. gcc -DPRINTF_INCLUDE_CONFIG_H ...) to include the
-// printf_config.h header file
-// default: undefined
-#ifdef PRINTF_INCLUDE_CONFIG_H
-#include "printf_config.h"
-#endif
-
-
+// PICO_CONFIG: PICO_PRINTF_NTOA_BUFFER_SIZE, Define printf ntoa buffer size, min=0, max=128, default=32, group=pico_printf
 // 'ntoa' conversion buffer size, this must be big enough to hold one converted
 // numeric number including padded zeros (dynamically created on stack)
-// default: 32 byte
 #ifndef PICO_PRINTF_NTOA_BUFFER_SIZE
 #define PICO_PRINTF_NTOA_BUFFER_SIZE    32U
 #endif
 
+// PICO_CONFIG: PICO_PRINTF_FTOA_BUFFER_SIZE, Define printf ftoa buffer size, min=0, max=128, default=32, group=pico_printf
 // 'ftoa' conversion buffer size, this must be big enough to hold one converted
 // float number including padded zeros (dynamically created on stack)
-// default: 32 byte
 #ifndef PICO_PRINTF_FTOA_BUFFER_SIZE
 #define PICO_PRINTF_FTOA_BUFFER_SIZE    32U
 #endif
 
+// PICO_CONFIG: PICO_PRINTF_SUPPORT_FLOAT, Enable floating point printing, default=1, group=pico_printf
 // support for the floating point type (%f)
-// default: activated
-#ifndef PICO_PRINTF_DISABLE_SUPPORT_FLOAT
+#ifndef PICO_PRINTF_SUPPORT_FLOAT
 #define PICO_PRINTF_SUPPORT_FLOAT 1
 #endif
 
+// PICO_CONFIG: PICO_PRINTF_SUPPORT_EXPONENTIAL, Enable exponential floating point printing, default=1, group=pico_printf
 // support for exponential floating point notation (%e/%g)
-// default: activated
-#ifndef PICO_PRINTF_DISABLE_SUPPORT_EXPONENTIAL
+#ifndef PICO_PRINTF_SUPPORT_EXPONENTIAL
 #define PICO_PRINTF_SUPPORT_EXPONENTIAL 1
 #endif
 
-// define the default floating point precision
-// default: 6 digits
+// PICO_CONFIG: PICO_PRINTF_DEFAULT_FLOAT_PRECISION, Define default floating point precision, min=1, max=16, default=6, group=pico_printf
 #ifndef PICO_PRINTF_DEFAULT_FLOAT_PRECISION
 #define PICO_PRINTF_DEFAULT_FLOAT_PRECISION  6U
 #endif
 
-// define the largest float suitable to print with %f
-// default: 1e9
+// PICO_CONFIG: PICO_PRINTF_MAX_FLOAT, Define the largest float suitable to print with %f, min=1, max=1e9, default=1e9, group=pico_printf
 #ifndef PICO_PRINTF_MAX_FLOAT
 #define PICO_PRINTF_MAX_FLOAT  1e9
 #endif
 
-// support for the long long types (%llu or %p)
-// default: activated
-#ifndef PICO_PRINTF_DISABLE_SUPPORT_LONG_LONG
+// PICO_CONFIG: PICO_PRINTF_SUPPORT_LONG_LONG, Enable support for long long types (%llu or %p), default=1, group=pico_printf
+#ifndef PICO_PRINTF_SUPPORT_LONG_LONG
 #define PICO_PRINTF_SUPPORT_LONG_LONG 1
 #endif
 
-// support for the ptrdiff_t type (%t)
+// PICO_CONFIG: PICO_PRINTF_SUPPORT_PTRDIFF_T, Enable support for the ptrdiff_t type (%t), default=1, group=pico_printf
 // ptrdiff_t is normally defined in <stddef.h> as long or long long type
-// default: activated
-#ifndef PICO_PRINTF_DISABLE_SUPPORT_PTRDIFF_T
+#ifndef PICO_PRINTF_SUPPORT_PTRDIFF_T
 #define PICO_PRINTF_SUPPORT_PTRDIFF_T 1
 #endif
 
@@ -117,8 +107,25 @@
 
 #endif
 
+/**
+ * Output a character to a custom device like UART, used by the printf() function
+ * This function is declared here only. You have to write your custom implementation somewhere
+ * \param character Character to output
+ */
+static void _putchar(char character) {
+    putchar(character);
+}
+
 // output function type
 typedef void (*out_fct_type)(char character, void *buffer, size_t idx, size_t maxlen);
+
+#if !PICO_PRINTF_ALWAYS_INCLUDED
+// we don't have a way to specify a truly weak symbol reference (the linker will always include targets in a single link step,
+// so we make a function pointer that is initialized on the first printf called... if printf is not included in the binary
+// (or has never been called - we can't tell) then this will be null. the assumption is that if you are using printf
+// you are likely to have printed something.
+static int (*lazy_vsnprintf)(out_fct_type out, char *buffer, const size_t maxlen, const char *format, va_list va);
+#endif
 
 // wrapper (used as buffer) for output function type
 typedef struct {
@@ -329,6 +336,7 @@ static size_t _etoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, d
                     unsigned int width, unsigned int flags);
 #endif
 
+#define is_nan __builtin_isnan
 
 // internal ftoa for fixed decimal floating point
 static size_t _ftoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, double value, unsigned int prec,
@@ -341,7 +349,7 @@ static size_t _ftoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, d
     static const double pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
     // test for special values
-    if (value != value)
+    if (is_nan(value))
         return _out_rev(out, buffer, idx, maxlen, "nan", 3, width, flags);
     if (value < -DBL_MAX)
         return _out_rev(out, buffer, idx, maxlen, "fni-", 4, width, flags);
@@ -396,7 +404,7 @@ static size_t _ftoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, d
 
     if (prec == 0U) {
         diff = value - (double) whole;
-        if ((!(diff < 0.5) || (diff > 0.5)) && (whole & 1)) {
+        if (!((diff < 0.5) || (diff > 0.5)) && (whole & 1)) {
             // exactly 0.5 and ODD, then round up
             // 1.5 -> 2, but 2.5 -> 2
             ++whole;
@@ -459,7 +467,7 @@ static size_t _ftoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, d
 static size_t _etoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, double value, unsigned int prec,
                     unsigned int width, unsigned int flags) {
     // check for NaN and special values
-    if ((value != value) || (value > DBL_MAX) || (value < -DBL_MAX)) {
+    if (is_nan(value) || (value > DBL_MAX) || (value < -DBL_MAX)) {
         return _ftoa(out, buffer, idx, maxlen, value, prec, width, flags);
     }
 
@@ -566,6 +574,9 @@ static size_t _etoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, d
 
 // internal vsnprintf
 static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const char *format, va_list va) {
+#if !PICO_PRINTF_ALWAYS_INCLUDED
+    lazy_vsnprintf = _vsnprintf;
+#endif
     unsigned int flags, width, precision, n;
     size_t idx = 0U;
 
@@ -765,25 +776,31 @@ static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const
                 format++;
                 break;
             }
-#if PICO_PRINTF_SUPPORT_FLOAT
             case 'f' :
             case 'F' :
+#if PICO_PRINTF_SUPPORT_FLOAT
                 if (*format == 'F') flags |= FLAGS_UPPERCASE;
                 idx = _ftoa(out, buffer, idx, maxlen, va_arg(va, double), precision, width, flags);
+#else
+                for(int i=0;i<2;i++) out('?', buffer, idx++, maxlen);
+                va_arg(va, double);
+#endif
                 format++;
                 break;
-#if PICO_PRINTF_SUPPORT_EXPONENTIAL
             case 'e':
             case 'E':
             case 'g':
             case 'G':
+#if PICO_PRINTF_SUPPORT_FLOAT && PICO_PRINTF_SUPPORT_EXPONENTIAL
                 if ((*format == 'g') || (*format == 'G')) flags |= FLAGS_ADAPT_EXP;
                 if ((*format == 'E') || (*format == 'G')) flags |= FLAGS_UPPERCASE;
                 idx = _etoa(out, buffer, idx, maxlen, va_arg(va, double), precision, width, flags);
+#else
+                for(int i=0;i<2;i++) out('?', buffer, idx++, maxlen);
+                va_arg(va, double);
+#endif
                 format++;
                 break;
-#endif  // PICO_PRINTF_SUPPORT_EXPONENTIAL
-#endif  // PICO_PRINTF_SUPPORT_FLOAT
             case 'c' : {
                 unsigned int l = 1U;
                 // pre padding
@@ -871,16 +888,7 @@ static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int printf_(const char *format, ...) {
-    va_list va;
-    va_start(va, format);
-    char buffer[1];
-    const int ret = _vsnprintf(_out_char, buffer, (size_t) -1, format, va);
-    va_end(va);
-    return ret;
-}
-
-int sprintf_(char *buffer, const char *format, ...) {
+int WRAPPER_FUNC(sprintf)(char *buffer, const char *format, ...) {
     va_list va;
     va_start(va, format);
     const int ret = _vsnprintf(_out_buffer, buffer, (size_t) -1, format, va);
@@ -888,7 +896,7 @@ int sprintf_(char *buffer, const char *format, ...) {
     return ret;
 }
 
-int snprintf_(char *buffer, size_t count, const char *format, ...) {
+int WRAPPER_FUNC(snprintf)(char *buffer, size_t count, const char *format, ...) {
     va_list va;
     va_start(va, format);
     const int ret = _vsnprintf(_out_buffer, buffer, count, format, va);
@@ -896,20 +904,34 @@ int snprintf_(char *buffer, size_t count, const char *format, ...) {
     return ret;
 }
 
-int vprintf_(const char *format, va_list va) {
-    char buffer[1];
-    return _vsnprintf(_out_char, buffer, (size_t) -1, format, va);
-}
-
-int vsnprintf_(char *buffer, size_t count, const char *format, va_list va) {
+int WRAPPER_FUNC(vsnprintf)(char *buffer, size_t count, const char *format, va_list va) {
     return _vsnprintf(_out_buffer, buffer, count, format, va);
 }
 
-int fctprintf(void (*out)(char character, void *arg), void *arg, const char *format, ...) {
-    va_list va;
-    va_start(va, format);
-    const out_fct_wrap_type out_fct_wrap = { out, arg };
-    const int ret = _vsnprintf(_out_fct, (char *) (uintptr_t) &out_fct_wrap, (size_t) -1, format, va);
-    va_end(va);
-    return ret;
+int vfctprintf(void (*out)(char character, void *arg), void *arg, const char *format, va_list va) {
+    const out_fct_wrap_type out_fct_wrap = {out, arg};
+    return _vsnprintf(_out_fct, (char *) (uintptr_t) &out_fct_wrap, (size_t) -1, format, va);
 }
+
+#if PICO_PRINTF_PICO
+#if !PICO_PRINTF_ALWAYS_INCLUDED
+bool weak_raw_printf(const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    bool rc = weak_raw_vprintf(fmt, va);
+    va_end(va);
+    return rc;
+}
+
+bool weak_raw_vprintf(const char *fmt, va_list args) {
+    if (lazy_vsnprintf) {
+        char buffer[1];
+        lazy_vsnprintf(_out_char, buffer, (size_t) -1, fmt, args);
+        return true;
+    } else {
+        puts(fmt);
+        return false;
+    }
+}
+#endif
+#endif
