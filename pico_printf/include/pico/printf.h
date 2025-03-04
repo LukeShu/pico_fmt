@@ -1,3 +1,9 @@
+// Copyright (c) 2014-2019  Marco Paland (info@paland.com)
+// SPDX-License-Identifier: MIT
+//
+// Copyright (c) 2020  Raspberry Pi (Trading) Ltd.
+// SPDX-License-Identifier: BSD-3-Clause
+//
 ///////////////////////////////////////////////////////////////////////////////
 // \author (c) Marco Paland (info@paland.com)
 //             2014-2019, PALANDesign Hannover, Germany

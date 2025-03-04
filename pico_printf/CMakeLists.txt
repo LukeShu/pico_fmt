@@ -1,3 +1,6 @@
+# Copyright (c) 2020  Raspberry Pi (Trading) Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 if (NOT TARGET pico_printf)
     # library to be depended on - we make this depend on particular implementations using per target generator expressions
     pico_add_library(pico_printf)
