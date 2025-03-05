@@ -710,9 +710,9 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                         _ntoa_long(ctx, (unsigned long) (value > 0 ? value : 0 - value),
                                    value < 0, base, precision, width, flags);
                     } else {
-                        const int value = (flags & FLAGS_CHAR) ? (char) va_arg(va, int) : (flags & FLAGS_SHORT)
-                                                                                          ? (short int) va_arg(va, int)
-                                                                                          : va_arg(va, int);
+                        const int value = (flags & FLAGS_CHAR)  ? (char)      va_arg(va, int)
+                                        : (flags & FLAGS_SHORT) ? (short int) va_arg(va, int)
+                                        :                                     va_arg(va, int);
                         _ntoa_long(ctx, (unsigned int) (value > 0 ? value : 0 - value),
                                    value < 0, base, precision, width, flags);
                     }
@@ -727,11 +727,9 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                         _ntoa_long(ctx, va_arg(va, unsigned long), false, base, precision,
                                    width, flags);
                     } else {
-                        const unsigned int value = (flags & FLAGS_CHAR) ? (unsigned char) va_arg(va, unsigned int)
-                                                                        : (flags & FLAGS_SHORT)
-                                                                          ? (unsigned short int) va_arg(va,
-                                                                                                        unsigned int)
-                                                                          : va_arg(va, unsigned int);
+                        const unsigned int value = (flags & FLAGS_CHAR)  ? (unsigned char)      va_arg(va, unsigned int)
+                                                 : (flags & FLAGS_SHORT) ? (unsigned short int) va_arg(va, unsigned int)
+                                                 :                                              va_arg(va, unsigned int);
                         _ntoa_long(ctx, value, false, base, precision, width, flags);
                     }
                 }
