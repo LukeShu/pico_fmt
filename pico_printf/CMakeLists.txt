@@ -18,12 +18,15 @@ if (NOT TARGET pico_printf)
 
     # IMPL=pico ################################################################
     #
-    # use the compact replacement for printf by Marco Paland
+    # use pico_fmt, based on Marco Paland's compact printf
     pico_add_library(pico_printf_pico)
     target_sources(pico_printf_pico INTERFACE
-            ${CMAKE_CURRENT_LIST_DIR}/printf.c
+            ${CMAKE_CURRENT_LIST_DIR}/printf_pico.c
     )
-    target_link_libraries(pico_printf_pico INTERFACE pico_printf_headers)
+    target_link_libraries(pico_printf_pico INTERFACE
+            pico_printf_headers
+            pico_fmt
+    )
     wrap_printf_functions(pico_printf_pico)
 
     # IMPL=none ################################################################

@@ -4,6 +4,9 @@
 // Copyright (c) 2020  Raspberry Pi (Trading) Ltd.
 // SPDX-License-Identifier: BSD-3-Clause
 //
+// Copyright (C) 2025  Luke T. Shumaker <lukeshu@lukeshu.com>
+// SPDX-License-Identifier: BSD-3-Clause
+//
 ///////////////////////////////////////////////////////////////////////////////
 // \author (c) Marco Paland (info@paland.com)
 //             2014-2019, PALANDesign Hannover, Germany
@@ -40,8 +43,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "pico.h"
-#include "pico/printf.h"
+#include "pico/fmt_printf.h"
 
 // PICO_CONFIG: PICO_PRINTF_NTOA_BUFFER_SIZE, Define printf ntoa buffer size, min=0, max=128, default=32, group=pico_printf
 // 'ntoa' conversion buffer size, this must be big enough to hold one converted
@@ -116,17 +118,9 @@
 // output function type
 typedef void (*out_fct_type)(char character, void *buffer, size_t idx, size_t maxlen);
 
-#if !PICO_PRINTF_ALWAYS_INCLUDED
-// we don't have a way to specify a truly weak symbol reference (the linker will always include targets in a single link step,
-// so we make a function pointer that is initialized on the first printf called... if printf is not included in the binary
-// (or has never been called - we can't tell) then this will be null. the assumption is that if you are using printf
-// you are likely to have printed something.
-static int (*lazy_vsnprintf)(out_fct_type out, char *buffer, const size_t maxlen, const char *format, va_list va);
-#endif
-
 // wrapper (used as buffer) for output function type
 typedef struct {
-    void (*fct)(char character, void *arg);
+    fmt_fct_t fct;
     void *arg;
 } out_fct_wrap_type;
 
@@ -550,7 +544,7 @@ static size_t _etoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, d
         // output the exponential symbol
         out((flags & FLAGS_UPPERCASE) ? 'E' : 'e', buffer, idx++, maxlen);
         // output the exponent value
-        idx = _ntoa_long(out, buffer, idx, maxlen, (uint)((expval < 0) ? -expval : expval), expval < 0, 10, 0, minwidth - 1,
+        idx = _ntoa_long(out, buffer, idx, maxlen, (unsigned int)((expval < 0) ? -expval : expval), expval < 0, 10, 0, minwidth - 1,
                          FLAGS_ZEROPAD | FLAGS_PLUS);
         // might need to right-pad spaces
         if (flags & FLAGS_LEFT) {
@@ -565,9 +559,6 @@ static size_t _etoa(out_fct_type out, char *buffer, size_t idx, size_t maxlen, d
 
 // internal vsnprintf
 static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const char *format, va_list va) {
-#if !PICO_PRINTF_ALWAYS_INCLUDED
-    lazy_vsnprintf = _vsnprintf;
-#endif
     unsigned int flags, width, precision, n;
     size_t idx = 0U;
 
@@ -876,10 +867,24 @@ static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const
     return (int) idx;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+int fmt_vfctprintf(fmt_fct_t out, void *arg, const char *format, va_list va) {
+    const out_fct_wrap_type out_fct_wrap = {out, arg};
+    return _vsnprintf(_out_fct, (char *) (uintptr_t) &out_fct_wrap, (size_t) -1, format, va);
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int WRAPPER_FUNC(sprintf)(char *buffer, const char *format, ...) {
+int fmt_fctprintf(fmt_fct_t out, void *arg, const char *format, ...) {
+    va_list va;
+    va_start(va, format);
+    const int ret = fmt_vfctprintf(out, arg, format, va);
+    va_end(va);
+    return ret;
+}
+
+int fmt_sprintf(char *buffer, const char *format, ...) {
     va_list va;
     va_start(va, format);
     const int ret = _vsnprintf(_out_buffer, buffer, (size_t) -1, format, va);
@@ -887,7 +892,11 @@ int WRAPPER_FUNC(sprintf)(char *buffer, const char *format, ...) {
     return ret;
 }
 
-int WRAPPER_FUNC(snprintf)(char *buffer, size_t count, const char *format, ...) {
+int fmt_vsprintf(char *buffer, const char *format, va_list va) {
+    return _vsnprintf(_out_buffer, buffer, (size_t) -1, format, va);
+}
+
+int fmt_snprintf(char *buffer, size_t count, const char *format, ...) {
     va_list va;
     va_start(va, format);
     const int ret = _vsnprintf(_out_buffer, buffer, count, format, va);
@@ -895,53 +904,6 @@ int WRAPPER_FUNC(snprintf)(char *buffer, size_t count, const char *format, ...) 
     return ret;
 }
 
-int WRAPPER_FUNC(vsnprintf)(char *buffer, size_t count, const char *format, va_list va) {
+int fmt_vsnprintf(char *buffer, size_t count, const char *format, va_list va) {
     return _vsnprintf(_out_buffer, buffer, count, format, va);
 }
-
-int vfctprintf(void (*out)(char character, void *arg), void *arg, const char *format, va_list va) {
-    const out_fct_wrap_type out_fct_wrap = {out, arg};
-    return _vsnprintf(_out_fct, (char *) (uintptr_t) &out_fct_wrap, (size_t) -1, format, va);
-}
-
-#if LIB_PICO_PRINTF_PICO
-#if !PICO_PRINTF_ALWAYS_INCLUDED
-/**
- * Output a character to a custom device like UART, used by the printf() function
- * This function is declared here only. You have to write your custom implementation somewhere
- * \param character Character to output
- */
-static void _putchar(char character) {
-    putchar(character);
-}
-
-// internal _putchar wrapper
-static inline void _out_char(char character, void *buffer, size_t idx, size_t maxlen) {
-    (void) buffer;
-    (void) idx;
-    (void) maxlen;
-    if (character) {
-        _putchar(character);
-    }
-}
-
-bool weak_raw_printf(const char *fmt, ...) {
-    va_list va;
-    va_start(va, fmt);
-    bool rc = weak_raw_vprintf(fmt, va);
-    va_end(va);
-    return rc;
-}
-
-bool weak_raw_vprintf(const char *fmt, va_list args) {
-    if (lazy_vsnprintf) {
-        char buffer[1];
-        lazy_vsnprintf(_out_char, buffer, (size_t) -1, fmt, args);
-        return true;
-    } else {
-        puts(fmt);
-        return false;
-    }
-}
-#endif
-#endif
