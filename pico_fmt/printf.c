@@ -44,6 +44,7 @@
 #include <stdio.h>
 
 #include "pico/fmt_printf.h"
+#include "pico/fmt_install.h"
 
 // PICO_CONFIG: PICO_PRINTF_NTOA_BUFFER_SIZE, Define printf ntoa buffer size, min=0, max=128, default=32, group=pico_printf
 // 'ntoa' conversion buffer size, this must be big enough to hold one converted
@@ -103,48 +104,25 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// internal flag definitions
-#define FMT_FLAG_ZEROPAD   (1U <<  0U) // '0'
-#define FMT_FLAG_LEFT      (1U <<  1U) // '-'
-#define FMT_FLAG_PLUS      (1U <<  2U) // '+'
-#define FMT_FLAG_SPACE     (1U <<  3U) // ' '
-#define FMT_FLAG_HASH      (1U <<  4U) // '#'
-#define FMT_FLAG_PRECISION (1U << 10U) // state.precision is set
-
-enum fmt_size {
-    FMT_SIZE_CHAR,      // "hh"
-    FMT_SIZE_SHORT,     // "h"
-    FMT_SIZE_DEFAULT,   // ""
-    FMT_SIZE_LONG,      // "l"
-    FMT_SIZE_LONG_LONG, // "ll"
-};
-
-struct ctx {
+struct _fmt_ctx {
     fmt_fct_t    fct;
     void        *arg;
     size_t       idx;
 };
 
-struct fmt_state {
-    // %[flags][width][.precision][size]specifier
-    unsigned int         flags;
-    unsigned int         width;
-    unsigned int         precision;
-    enum fmt_size        size;
-    char                 specifier;
-
-    va_list             *args;
-
-    struct ctx          *ctx;
-};
-
-typedef void (*fmt_specifier_t)(struct fmt_state);
-
-static inline void out(char character, struct ctx *ctx) {
+static inline void out(char character, struct _fmt_ctx *ctx) {
     if (ctx->fct) {
         ctx->fct(character, ctx->arg);
     }
     ctx->idx++;
+}
+
+inline size_t fmt_state_len(struct fmt_state state) {
+    return state.ctx->idx;
+}
+
+inline void fmt_state_putchar(struct fmt_state state, char character) {
+    out(character, state.ctx);
 }
 
 // internal secure strlen
@@ -588,9 +566,13 @@ static fmt_specifier_t specifier_table[0x100] = {
     ['%'] = conv_pct,
 };
 
+void fmt_install(char character, fmt_specifier_t fn) {
+    specifier_table[(unsigned int)character] = fn;
+}
+
 int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
     unsigned int n;
-    struct ctx _ctx = {
+    struct _fmt_ctx _ctx = {
         .fct = fct,
         .arg = arg,
         .idx = 0,

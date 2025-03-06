@@ -32,6 +32,10 @@ You do not need to use pico-sdk to use `pico_fmt`.
  - The CMake function `pico_set_printf_implementation()` may be called
    on an OBJECT_LIBRARY, not just an EXECUTABLE.
 
+ - New specifier characters (`%x`) may be registered with the
+   `fmt_install()` function, similar to GNU
+   `register_printf_specifier()` or Plan 9 `fmtinstall()`.
+
 # Usage
 
 ## Without pico-sdk
@@ -130,6 +134,15 @@ int printf(const char *format, ...) {
 
 I dislike Bazel even more than I dislike CMake; I do not provide Bazel
 build files for pico-fmt (but contributions welcome!).
+
+# Extending
+
+In the `%[flags][width][.precision][size]specifier` syntax, new
+specifier characters may be registered by including
+`<pico/fmt_install.h>` and calling `fmt_install()`.  See
+`fmt_install.h` for details.
+
+TODO: Write an example.
 
 # License
 
