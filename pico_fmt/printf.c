@@ -550,6 +550,13 @@ static void _etoa(struct fmt_state state, double value, bool adapt_exp) {
 #endif  // PICO_PRINTF_SUPPORT_EXPONENTIAL
 #endif  // PICO_PRINTF_SUPPORT_FLOAT
 
+static void conv_int(struct fmt_state state);
+static void conv_double(struct fmt_state state);
+static void conv_char(struct fmt_state state);
+static void conv_str(struct fmt_state state);
+static void conv_ptr(struct fmt_state state);
+static void conv_pct(struct fmt_state state);
+
 int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
     unsigned int n;
     struct ctx _ctx = {
@@ -687,7 +694,41 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
             case 'x' :
             case 'X' :
             case 'o' :
-            case 'b' : {
+            case 'b' :
+                conv_int(state);
+                break;
+            case 'f' :
+            case 'F' :
+            case 'e':
+            case 'E':
+            case 'g':
+            case 'G':
+                conv_double(state);
+                break;
+            case 'c' :
+                conv_char(state);
+                break;
+            case 's' :
+                conv_str(state);
+                break;
+            case 'p' :
+                conv_ptr(state);
+                break;
+            case '%' :
+                conv_pct(state);
+                break;
+
+            default :
+                out(state.specifier, state.ctx);
+                break;
+        }
+    }
+
+    va_end(_va_save);
+    return (int) _ctx.idx;
+}
+
+static void conv_int(struct fmt_state state) {
                 // set the base
                 unsigned int base;
                 if (state.specifier == 'x' || state.specifier == 'X') {
@@ -777,8 +818,10 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
                             break;
                     }
                 }
-                break;
-            }
+}
+
+static void conv_double(struct fmt_state state) {
+    switch (state.specifier) {
             case 'f' :
             case 'F' :
 #if PICO_PRINTF_SUPPORT_FLOAT
@@ -818,7 +861,10 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
                 va_arg(*state.args, double);
 #endif
                 break;
-            case 'c' : {
+    }
+}
+
+static void conv_char(struct fmt_state state) {
                 unsigned int l = 1U;
                 // pre padding
                 if (!(state.flags & FMT_FLAG_LEFT)) {
@@ -834,10 +880,9 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
                         out(' ', state.ctx);
                     }
                 }
-                break;
-            }
+}
 
-            case 's' : {
+static void conv_str(struct fmt_state state) {
                 const char *p = va_arg(*state.args, char*);
                 unsigned int l = _strnlen_s(p, state.precision ? state.precision : (size_t) -1);
                 // pre padding
@@ -859,10 +904,9 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
                         out(' ', state.ctx);
                     }
                 }
-                break;
-            }
+}
 
-            case 'p' : {
+static void conv_ptr(struct fmt_state state) {
                 state.width = sizeof(void *) * 2U;
                 state.flags |= FMT_FLAG_ZEROPAD;
                 state.specifier = 'X';
@@ -876,19 +920,8 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
 #if PICO_PRINTF_SUPPORT_LONG_LONG
                 }
 #endif
-                break;
-            }
+}
 
-            case '%' :
+static void conv_pct(struct fmt_state state) {
                 out('%', state.ctx);
-                break;
-
-            default :
-                out(state.specifier, state.ctx);
-                break;
-        }
-    }
-
-    va_end(_va_save);
-    return (int) _ctx.idx;
 }
