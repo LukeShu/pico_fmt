@@ -729,199 +729,199 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list _va) {
 }
 
 static void conv_int(struct fmt_state state) {
-                // set the base
-                unsigned int base;
-                if (state.specifier == 'x' || state.specifier == 'X') {
-                    base = 16U;
-                } else if (state.specifier == 'o') {
-                    base = 8U;
-                } else if (state.specifier == 'b') {
-                    base = 2U;
-                } else {
-                    base = 10U;
-                    state.flags &= ~FMT_FLAG_HASH;   // no hash for dec format
-                }
+    // set the base
+    unsigned int base;
+    if (state.specifier == 'x' || state.specifier == 'X') {
+        base = 16U;
+    } else if (state.specifier == 'o') {
+        base = 8U;
+    } else if (state.specifier == 'b') {
+        base = 2U;
+    } else {
+        base = 10U;
+        state.flags &= ~FMT_FLAG_HASH;   // no hash for dec format
+    }
 
-                // no plus or space flag for u, x, X, o, b
-                if ((state.specifier != 'i') && (state.specifier != 'd')) {
-                    state.flags &= ~(FMT_FLAG_PLUS | FMT_FLAG_SPACE);
-                }
+    // no plus or space flag for u, x, X, o, b
+    if ((state.specifier != 'i') && (state.specifier != 'd')) {
+        state.flags &= ~(FMT_FLAG_PLUS | FMT_FLAG_SPACE);
+    }
 
-                // ignore '0' flag when precision is given
-                if (state.flags & FMT_FLAG_PRECISION) {
-                    state.flags &= ~FMT_FLAG_ZEROPAD;
-                }
+    // ignore '0' flag when precision is given
+    if (state.flags & FMT_FLAG_PRECISION) {
+        state.flags &= ~FMT_FLAG_ZEROPAD;
+    }
 
-                // convert the integer
-                if ((state.specifier == 'i') || (state.specifier == 'd')) {
-                    // signed
-                    switch (state.size) {
+    // convert the integer
+    if ((state.specifier == 'i') || (state.specifier == 'd')) {
+        // signed
+        switch (state.size) {
 #if PICO_PRINTF_SUPPORT_LONG_LONG
-                        case FMT_SIZE_LONG_LONG: {
-                            const long long value = va_arg(*state.args, long long);
-                            _ntoa_long_long(state, (unsigned long long) (value > 0 ? value : 0 - value), value < 0, base);
-                            break;
-                        }
+            case FMT_SIZE_LONG_LONG: {
+                const long long value = va_arg(*state.args, long long);
+                _ntoa_long_long(state, (unsigned long long) (value > 0 ? value : 0 - value), value < 0, base);
+                break;
+            }
 #else
-                        case FMT_SIZE_LONG_LONG: // fall through
+            case FMT_SIZE_LONG_LONG: // fall through
 #endif
-                        case FMT_SIZE_LONG: {
-                            const long value = va_arg(*state.args, long);
-                            _ntoa_long(state, (unsigned long) (value > 0 ? value : 0 - value), value < 0, base);
-                            break;
-                        }
-                        case FMT_SIZE_DEFAULT: {
-                            const int value = va_arg(*state.args, int);
-                            _ntoa_long(state, (unsigned int) (value > 0 ? value : 0 - value), value < 0, base);
-                            break;
-                        }
-                        case FMT_SIZE_SHORT: {
-                            // 'short' is promoted to 'int' when passed through '...'; so we read it
-                            // with va_arg(*state.args, int), but then truncate it with casting.
-                            const int value = (short int) va_arg(*state.args, int);
-                            _ntoa_long(state, (unsigned int) (value > 0 ? value : 0 - value), value < 0, base);
-                            break;
-                        }
-                        case FMT_SIZE_CHAR: {
-                            // 'char' is promoted to 'int' when passed through '...'; so we read it
-                            // with va_arg(*state.args, int), but then truncate it with casting.
-                            const int value = (char) va_arg(*state.args, int);
-                            _ntoa_long(state, (unsigned int) (value > 0 ? value : 0 - value), value < 0, base);
-                            break;
-                        }
-                    }
-                } else {
-                    // unsigned
-                    switch (state.size) {
-                        case FMT_SIZE_LONG_LONG:
+            case FMT_SIZE_LONG: {
+                const long value = va_arg(*state.args, long);
+                _ntoa_long(state, (unsigned long) (value > 0 ? value : 0 - value), value < 0, base);
+                break;
+            }
+            case FMT_SIZE_DEFAULT: {
+                const int value = va_arg(*state.args, int);
+                _ntoa_long(state, (unsigned int) (value > 0 ? value : 0 - value), value < 0, base);
+                break;
+            }
+            case FMT_SIZE_SHORT: {
+                // 'short' is promoted to 'int' when passed through '...'; so we read it
+                // with va_arg(*state.args, int), but then truncate it with casting.
+                const int value = (short int) va_arg(*state.args, int);
+                _ntoa_long(state, (unsigned int) (value > 0 ? value : 0 - value), value < 0, base);
+                break;
+            }
+            case FMT_SIZE_CHAR: {
+                // 'char' is promoted to 'int' when passed through '...'; so we read it
+                // with va_arg(*state.args, int), but then truncate it with casting.
+                const int value = (char) va_arg(*state.args, int);
+                _ntoa_long(state, (unsigned int) (value > 0 ? value : 0 - value), value < 0, base);
+                break;
+            }
+        }
+    } else {
+        // unsigned
+        switch (state.size) {
+            case FMT_SIZE_LONG_LONG:
 #if PICO_PRINTF_SUPPORT_LONG_LONG
-                            _ntoa_long_long(state, va_arg(*state.args, unsigned long long), false, base);
-                            break;
+                _ntoa_long_long(state, va_arg(*state.args, unsigned long long), false, base);
+                break;
 #else
-                            // fall through
+                // fall through
 #endif
-                        case FMT_SIZE_LONG:
-                            _ntoa_long(state, va_arg(*state.args, unsigned long), false, base);
-                            break;
-                        case FMT_SIZE_DEFAULT:
-                            _ntoa_long(state, va_arg(*state.args, unsigned int), false, base);
-                            break;
-                        case FMT_SIZE_SHORT:
-                            // 'short' is promoted to 'int' when passed through '...'; so we read it
-                            // with va_arg(*state.args, unsigned int), but then truncate it with casting.
-                            _ntoa_long(state, (unsigned short int) va_arg(*state.args, unsigned int), false, base);
-                            break;
-                        case FMT_SIZE_CHAR:
-                            // 'char' is promoted to 'int' when passed through '...'; so we read it
-                            // with va_arg(*state.args, unsigned int), but then truncate it with casting.
-                            _ntoa_long(state, (unsigned char) va_arg(*state.args, unsigned int), false, base);
-                            break;
-                    }
-                }
+            case FMT_SIZE_LONG:
+                _ntoa_long(state, va_arg(*state.args, unsigned long), false, base);
+                break;
+            case FMT_SIZE_DEFAULT:
+                _ntoa_long(state, va_arg(*state.args, unsigned int), false, base);
+                break;
+            case FMT_SIZE_SHORT:
+                // 'short' is promoted to 'int' when passed through '...'; so we read it
+                // with va_arg(*state.args, unsigned int), but then truncate it with casting.
+                _ntoa_long(state, (unsigned short int) va_arg(*state.args, unsigned int), false, base);
+                break;
+            case FMT_SIZE_CHAR:
+                // 'char' is promoted to 'int' when passed through '...'; so we read it
+                // with va_arg(*state.args, unsigned int), but then truncate it with casting.
+                _ntoa_long(state, (unsigned char) va_arg(*state.args, unsigned int), false, base);
+                break;
+        }
+    }
 }
 
 static void conv_double(struct fmt_state state) {
     switch (state.specifier) {
-            case 'f' :
-            case 'F' :
+        case 'f' :
+        case 'F' :
 #if PICO_PRINTF_SUPPORT_FLOAT
-                {
-                    double value = va_arg(*state.args, double);
-                    // test for very large values
-                    // standard printf behavior is to print EVERY whole number digit -- which could be 100s of characters overflowing your buffers == bad
-                    if ((value > PICO_PRINTF_MAX_FLOAT && value < DBL_MAX)
-                        || (value < -PICO_PRINTF_MAX_FLOAT && value > -DBL_MAX)) {
+            {
+                double value = va_arg(*state.args, double);
+                // test for very large values
+                // standard printf behavior is to print EVERY whole number digit -- which could be 100s of characters overflowing your buffers == bad
+                if ((value > PICO_PRINTF_MAX_FLOAT && value < DBL_MAX)
+                    || (value < -PICO_PRINTF_MAX_FLOAT && value > -DBL_MAX)) {
 #if PICO_PRINTF_SUPPORT_EXPONENTIAL
-                        _etoa(state, value, false);
+                    _etoa(state, value, false);
 #endif
-                        break;
-                    }
-                    _ftoa(state, value);
+                    break;
                 }
+                _ftoa(state, value);
+            }
 #else
-                for(int i=0;i<2;i++) out('?', state.ctx);
-                va_arg(*state.args, double);
+            for(int i=0;i<2;i++) out('?', state.ctx);
+            va_arg(*state.args, double);
 #endif
-                break;
-            case 'e':
-            case 'E':
+            break;
+        case 'e':
+        case 'E':
 #if PICO_PRINTF_SUPPORT_FLOAT && PICO_PRINTF_SUPPORT_EXPONENTIAL
-                _etoa(state, va_arg(*state.args, double), false);
+            _etoa(state, va_arg(*state.args, double), false);
 #else
-                for(int i=0;i<2;i++) out('?', state.ctx);
-                va_arg(*state.args, double);
+            for(int i=0;i<2;i++) out('?', state.ctx);
+            va_arg(*state.args, double);
 #endif
-                break;
-            case 'g':
-            case 'G':
+            break;
+        case 'g':
+        case 'G':
 #if PICO_PRINTF_SUPPORT_FLOAT && PICO_PRINTF_SUPPORT_EXPONENTIAL
-                _etoa(state, va_arg(*state.args, double), true);
+            _etoa(state, va_arg(*state.args, double), true);
 #else
-                for(int i=0;i<2;i++) out('?', state.ctx);
-                va_arg(*state.args, double);
+            for(int i=0;i<2;i++) out('?', state.ctx);
+            va_arg(*state.args, double);
 #endif
-                break;
+            break;
     }
 }
 
 static void conv_char(struct fmt_state state) {
-                unsigned int l = 1U;
-                // pre padding
-                if (!(state.flags & FMT_FLAG_LEFT)) {
-                    while (l++ < state.width) {
-                        out(' ', state.ctx);
-                    }
-                }
-                // char output
-                out((char) va_arg(*state.args, int), state.ctx);
-                // post padding
-                if (state.flags & FMT_FLAG_LEFT) {
-                    while (l++ < state.width) {
-                        out(' ', state.ctx);
-                    }
-                }
+    unsigned int l = 1U;
+    // pre padding
+    if (!(state.flags & FMT_FLAG_LEFT)) {
+        while (l++ < state.width) {
+            out(' ', state.ctx);
+        }
+    }
+    // char output
+    out((char) va_arg(*state.args, int), state.ctx);
+    // post padding
+    if (state.flags & FMT_FLAG_LEFT) {
+        while (l++ < state.width) {
+            out(' ', state.ctx);
+        }
+    }
 }
 
 static void conv_str(struct fmt_state state) {
-                const char *p = va_arg(*state.args, char*);
-                unsigned int l = _strnlen_s(p, state.precision ? state.precision : (size_t) -1);
-                // pre padding
-                if (state.flags & FMT_FLAG_PRECISION) {
-                    l = (l < state.precision ? l : state.precision);
-                }
-                if (!(state.flags & FMT_FLAG_LEFT)) {
-                    while (l++ < state.width) {
-                        out(' ', state.ctx);
-                    }
-                }
-                // string output
-                while ((*p != 0) && (!(state.flags & FMT_FLAG_PRECISION) || state.precision--)) {
-                    out(*(p++), state.ctx);
-                }
-                // post padding
-                if (state.flags & FMT_FLAG_LEFT) {
-                    while (l++ < state.width) {
-                        out(' ', state.ctx);
-                    }
-                }
+    const char *p = va_arg(*state.args, char*);
+    unsigned int l = _strnlen_s(p, state.precision ? state.precision : (size_t) -1);
+    // pre padding
+    if (state.flags & FMT_FLAG_PRECISION) {
+        l = (l < state.precision ? l : state.precision);
+    }
+    if (!(state.flags & FMT_FLAG_LEFT)) {
+        while (l++ < state.width) {
+            out(' ', state.ctx);
+        }
+    }
+    // string output
+    while ((*p != 0) && (!(state.flags & FMT_FLAG_PRECISION) || state.precision--)) {
+        out(*(p++), state.ctx);
+    }
+    // post padding
+    if (state.flags & FMT_FLAG_LEFT) {
+        while (l++ < state.width) {
+            out(' ', state.ctx);
+        }
+    }
 }
 
 static void conv_ptr(struct fmt_state state) {
-                state.width = sizeof(void *) * 2U;
-                state.flags |= FMT_FLAG_ZEROPAD;
-                state.specifier = 'X';
+    state.width = sizeof(void *) * 2U;
+    state.flags |= FMT_FLAG_ZEROPAD;
+    state.specifier = 'X';
 #if PICO_PRINTF_SUPPORT_LONG_LONG
-                const bool is_ll = sizeof(uintptr_t) == sizeof(long long);
-                if (is_ll) {
-                    _ntoa_long_long(state, (uintptr_t) va_arg(*state.args, void*), false, 16U);
-                } else {
+    const bool is_ll = sizeof(uintptr_t) == sizeof(long long);
+    if (is_ll) {
+        _ntoa_long_long(state, (uintptr_t) va_arg(*state.args, void*), false, 16U);
+    } else {
 #endif
-                    _ntoa_long(state, (unsigned long) ((uintptr_t) va_arg(*state.args, void*)), false, 16U);
+        _ntoa_long(state, (unsigned long) ((uintptr_t) va_arg(*state.args, void*)), false, 16U);
 #if PICO_PRINTF_SUPPORT_LONG_LONG
-                }
+    }
 #endif
 }
 
 static void conv_pct(struct fmt_state state) {
-                out('%', state.ctx);
+    out('%', state.ctx);
 }
