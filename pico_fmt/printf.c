@@ -110,7 +110,6 @@
 #define FMT_FLAG_SPACE     (1U <<  3U)
 #define FMT_FLAG_HASH      (1U <<  4U)
 #define FMT_FLAG_PRECISION (1U << 10U)
-#define FMT_FLAG_ADAPT_EXP (1U << 11U)
 
 enum fmt_size {
     FMT_SIZE_CHAR,      // "hh"
@@ -297,12 +296,24 @@ static void _ntoa_long_long(struct fmt_state state, unsigned long long value, bo
 
 #if PICO_PRINTF_SUPPORT_FLOAT
 
-#if PICO_PRINTF_SUPPORT_EXPONENTIAL
-// forward declaration so that _ftoa can switch to exp notation for values > PICO_PRINTF_MAX_FLOAT
-static void _etoa(struct fmt_state state, double value);
-#endif
-
 #define is_nan __builtin_isnan
+
+static bool _float_special(struct fmt_state state, double value) {
+    // test for special values
+    if (is_nan(value)) {
+        _out_rev(state, "nan", 3);
+        return true;
+    }
+    if (value < -DBL_MAX) {
+        _out_rev(state, "fni-", 4);
+        return true;
+    }
+    if (value > DBL_MAX) {
+        _out_rev(state, (state.flags & FMT_FLAG_PLUS) ? "fni+" : "fni", (state.flags & FMT_FLAG_PLUS) ? 4U : 3U);
+        return true;
+    }
+    return false;
+}
 
 // internal ftoa for fixed decimal floating point
 static void _ftoa(struct fmt_state state, double value) {
@@ -313,28 +324,9 @@ static void _ftoa(struct fmt_state state, double value) {
     // powers of 10
     static const double pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
-    // test for special values
-    if (is_nan(value)) {
-        _out_rev(state, "nan", 3);
+    // check for NaN and special values
+    if (_float_special(state, value))
         return;
-    }
-    if (value < -DBL_MAX) {
-        _out_rev(state, "fni-", 4);
-        return;
-    }
-    if (value > DBL_MAX) {
-        _out_rev(state, (state.flags & FMT_FLAG_PLUS) ? "fni+" : "fni", (state.flags & FMT_FLAG_PLUS) ? 4U : 3U);
-        return;
-    }
-
-    // test for very large values
-    // standard printf behavior is to print EVERY whole number digit -- which could be 100s of characters overflowing your buffers == bad
-    if ((value > PICO_PRINTF_MAX_FLOAT) || (value < -PICO_PRINTF_MAX_FLOAT)) {
-#if PICO_PRINTF_SUPPORT_EXPONENTIAL
-        _etoa(state, value);
-#endif
-        return;
-    }
 
     // test for negative
     bool negative = false;
@@ -433,12 +425,10 @@ static void _ftoa(struct fmt_state state, double value) {
 #if PICO_PRINTF_SUPPORT_EXPONENTIAL
 
 // internal ftoa variant for exponential floating-point type, contributed by Martijn Jasperse <m.jasperse@gmail.com>
-static void _etoa(struct fmt_state state, double value) {
+static void _etoa(struct fmt_state state, double value, bool adapt_exp) {
     // check for NaN and special values
-    if (is_nan(value) || (value > DBL_MAX) || (value < -DBL_MAX)) {
-        _ftoa(state, value);
+    if (_float_special(state, value))
         return;
-    }
 
     // determine the sign
     const bool negative = value < 0;
@@ -485,7 +475,7 @@ static void _etoa(struct fmt_state state, double value) {
     unsigned int minwidth = ((expval < 100) && (expval > -100)) ? 4U : 5U;
 
     // in "%g" mode, "state.precision" is the number of *significant figures* not decimals
-    if (state.flags & FMT_FLAG_ADAPT_EXP) {
+    if (adapt_exp) {
         // do we want to fall-back to "%f" mode?
         if ((conv.U == 0) || ((value >= 1e-4) && (value < 1e6))) {
             if ((int) state.precision > expval) {
@@ -529,7 +519,8 @@ static void _etoa(struct fmt_state state, double value) {
     struct fmt_state substate = {
         .width = fwidth,
         .precision = state.precision,
-        .flags = state.flags & ~FMT_FLAG_ADAPT_EXP,
+        .flags = state.flags,
+        .specifier = 'f',
         .ctx = state.ctx,
     };
     _ftoa(substate, negative ? -value : value);
@@ -543,6 +534,7 @@ static void _etoa(struct fmt_state state, double value) {
             .width = minwidth - 1,
             .precision = 0,
             .flags = FMT_FLAG_ZEROPAD | FMT_FLAG_PLUS,
+            .specifier = 'u',
             .ctx = state.ctx,
         };
         _ntoa_long(substate, (unsigned int)((expval < 0) ? -expval : expval), expval < 0, 10);
@@ -785,7 +777,19 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
             case 'f' :
             case 'F' :
 #if PICO_PRINTF_SUPPORT_FLOAT
-                _ftoa(state, va_arg(va, double));
+                {
+                    double value = va_arg(va, double);
+                    // test for very large values
+                    // standard printf behavior is to print EVERY whole number digit -- which could be 100s of characters overflowing your buffers == bad
+                    if ((value > PICO_PRINTF_MAX_FLOAT && value < DBL_MAX)
+                        || (value < -PICO_PRINTF_MAX_FLOAT && value > -DBL_MAX)) {
+#if PICO_PRINTF_SUPPORT_EXPONENTIAL
+                        _etoa(state, value, false);
+#endif
+                        break;
+                    }
+                    _ftoa(state, value);
+                }
 #else
                 for(int i=0;i<2;i++) out('?', state.ctx);
                 va_arg(va, double);
@@ -793,11 +797,17 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                 break;
             case 'e':
             case 'E':
+#if PICO_PRINTF_SUPPORT_FLOAT && PICO_PRINTF_SUPPORT_EXPONENTIAL
+                _etoa(state, va_arg(va, double), false);
+#else
+                for(int i=0;i<2;i++) out('?', state.ctx);
+                va_arg(va, double);
+#endif
+                break;
             case 'g':
             case 'G':
 #if PICO_PRINTF_SUPPORT_FLOAT && PICO_PRINTF_SUPPORT_EXPONENTIAL
-                if ((state.specifier == 'g') || (state.specifier == 'G')) state.flags |= FMT_FLAG_ADAPT_EXP;
-                _etoa(state, va_arg(va, double));
+                _etoa(state, va_arg(va, double), true);
 #else
                 for(int i=0;i<2;i++) out('?', state.ctx);
                 va_arg(va, double);
