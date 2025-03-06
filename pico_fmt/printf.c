@@ -109,7 +109,6 @@
 #define FMT_FLAG_PLUS      (1U <<  2U)
 #define FMT_FLAG_SPACE     (1U <<  3U)
 #define FMT_FLAG_HASH      (1U <<  4U)
-#define FMT_FLAG_UPPERCASE (1U <<  5U)
 #define FMT_FLAG_PRECISION (1U << 10U)
 #define FMT_FLAG_ADAPT_EXP (1U << 11U)
 
@@ -128,11 +127,12 @@ struct ctx {
 };
 
 struct fmt_state {
-    // %[flags][width][.precision][size]conv
+    // %[flags][width][.precision][size]specifier
     unsigned int         flags;
     unsigned int         width;
     unsigned int         precision;
     enum fmt_size        size;
+    char                 specifier;
 
     struct ctx          *ctx;
 };
@@ -159,6 +159,9 @@ static inline bool _is_digit(char ch) {
     return (ch >= '0') && (ch <= '9');
 }
 
+static inline bool _is_upper(char ch) {
+    return (ch >= 'A') && (ch <= 'Z');
+}
 
 // internal ASCII string to unsigned int conversion
 static unsigned int _atoi(const char **str) {
@@ -218,10 +221,8 @@ static void _ntoa_format(struct fmt_state state, char *buf, size_t len, bool neg
                 len--;
             }
         }
-        if ((base == 16U) && !(state.flags & FMT_FLAG_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
-            buf[len++] = 'x';
-        } else if ((base == 16U) && (state.flags & FMT_FLAG_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
-            buf[len++] = 'X';
+        if ((base == 16U) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
+            buf[len++] = state.specifier;
         } else if ((base == 2U) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
             buf[len++] = 'b';
         }
@@ -258,7 +259,7 @@ static void _ntoa_long(struct fmt_state state, unsigned long value, bool negativ
     if (!(state.flags & FMT_FLAG_PRECISION) || value) {
         do {
             const char digit = (char) (value % base);
-            buf[len++] = (char)(digit < 10 ? '0' + digit : (state.flags & FMT_FLAG_UPPERCASE ? 'A' : 'a') + digit - 10);
+            buf[len++] = (char)(digit < 10 ? '0' + digit : (_is_upper(state.specifier) ? 'A' : 'a') + digit - 10);
             value /= base;
         } while (value && (len < PICO_PRINTF_NTOA_BUFFER_SIZE));
     }
@@ -283,7 +284,7 @@ static void _ntoa_long_long(struct fmt_state state, unsigned long long value, bo
     if (!(state.flags & FMT_FLAG_PRECISION) || value) {
         do {
             const char digit = (char) (value % base);
-            buf[len++] = (char)(digit < 10 ? '0' + digit : (state.flags & FMT_FLAG_UPPERCASE ? 'A' : 'a') + digit - 10);
+            buf[len++] = (char)(digit < 10 ? '0' + digit : (_is_upper(state.specifier) ? 'A' : 'a') + digit - 10);
             value /= base;
         } while (value && (len < PICO_PRINTF_NTOA_BUFFER_SIZE));
     }
@@ -536,7 +537,7 @@ static void _etoa(struct fmt_state state, double value) {
     // output the exponent part
     if (minwidth) {
         // output the exponential symbol
-        out((state.flags & FMT_FLAG_UPPERCASE) ? 'E' : 'e', state.ctx);
+        out(_is_upper(state.specifier) ? 'E' : 'e', state.ctx);
         // output the exponent value
         struct fmt_state substate = {
             .width = minwidth - 1,
@@ -567,7 +568,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
     };
 
     while (*format) {
-        // format specifier?  %[flags][width][.precision][length]
+        // format specifier?  %[flags][width][.precision][length]specifier
         if (*format != '%') {
             // no
             out(*format, state.ctx);
@@ -680,7 +681,9 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
         }
 
         // evaluate specifier
-        switch (*format) {
+        state.specifier = *format;
+        format++;
+        switch (state.specifier) {
             case 'd' :
             case 'i' :
             case 'u' :
@@ -690,23 +693,19 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
             case 'b' : {
                 // set the base
                 unsigned int base;
-                if (*format == 'x' || *format == 'X') {
+                if (state.specifier == 'x' || state.specifier == 'X') {
                     base = 16U;
-                } else if (*format == 'o') {
+                } else if (state.specifier == 'o') {
                     base = 8U;
-                } else if (*format == 'b') {
+                } else if (state.specifier == 'b') {
                     base = 2U;
                 } else {
                     base = 10U;
                     state.flags &= ~FMT_FLAG_HASH;   // no hash for dec format
                 }
-                // uppercase
-                if (*format == 'X') {
-                    state.flags |= FMT_FLAG_UPPERCASE;
-                }
 
                 // no plus or space flag for u, x, X, o, b
-                if ((*format != 'i') && (*format != 'd')) {
+                if ((state.specifier != 'i') && (state.specifier != 'd')) {
                     state.flags &= ~(FMT_FLAG_PLUS | FMT_FLAG_SPACE);
                 }
 
@@ -716,7 +715,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                 }
 
                 // convert the integer
-                if ((*format == 'i') || (*format == 'd')) {
+                if ((state.specifier == 'i') || (state.specifier == 'd')) {
                     // signed
                     switch (state.size) {
 #if PICO_PRINTF_SUPPORT_LONG_LONG
@@ -781,33 +780,28 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                             break;
                     }
                 }
-                format++;
                 break;
             }
             case 'f' :
             case 'F' :
 #if PICO_PRINTF_SUPPORT_FLOAT
-                if (*format == 'F') state.flags |= FMT_FLAG_UPPERCASE;
                 _ftoa(state, va_arg(va, double));
 #else
                 for(int i=0;i<2;i++) out('?', state.ctx);
                 va_arg(va, double);
 #endif
-                format++;
                 break;
             case 'e':
             case 'E':
             case 'g':
             case 'G':
 #if PICO_PRINTF_SUPPORT_FLOAT && PICO_PRINTF_SUPPORT_EXPONENTIAL
-                if ((*format == 'g') || (*format == 'G')) state.flags |= FMT_FLAG_ADAPT_EXP;
-                if ((*format == 'E') || (*format == 'G')) state.flags |= FMT_FLAG_UPPERCASE;
+                if ((state.specifier == 'g') || (state.specifier == 'G')) state.flags |= FMT_FLAG_ADAPT_EXP;
                 _etoa(state, va_arg(va, double));
 #else
                 for(int i=0;i<2;i++) out('?', state.ctx);
                 va_arg(va, double);
 #endif
-                format++;
                 break;
             case 'c' : {
                 unsigned int l = 1U;
@@ -825,7 +819,6 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                         out(' ', state.ctx);
                     }
                 }
-                format++;
                 break;
             }
 
@@ -851,13 +844,13 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                         out(' ', state.ctx);
                     }
                 }
-                format++;
                 break;
             }
 
             case 'p' : {
                 state.width = sizeof(void *) * 2U;
-                state.flags |= FMT_FLAG_ZEROPAD | FMT_FLAG_UPPERCASE;
+                state.flags |= FMT_FLAG_ZEROPAD;
+                state.specifier = 'X';
 #if PICO_PRINTF_SUPPORT_LONG_LONG
                 const bool is_ll = sizeof(uintptr_t) == sizeof(long long);
                 if (is_ll) {
@@ -868,18 +861,15 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
 #if PICO_PRINTF_SUPPORT_LONG_LONG
                 }
 #endif
-                format++;
                 break;
             }
 
             case '%' :
                 out('%', state.ctx);
-                format++;
                 break;
 
             default :
-                out(*format, state.ctx);
-                format++;
+                out(state.specifier, state.ctx);
                 break;
         }
     }
