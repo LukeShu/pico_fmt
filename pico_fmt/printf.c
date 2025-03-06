@@ -104,18 +104,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // internal flag definitions
-#define FLAGS_ZEROPAD   (1U <<  0U)
-#define FLAGS_LEFT      (1U <<  1U)
-#define FLAGS_PLUS      (1U <<  2U)
-#define FLAGS_SPACE     (1U <<  3U)
-#define FLAGS_HASH      (1U <<  4U)
-#define FLAGS_UPPERCASE (1U <<  5U)
-#define FLAGS_CHAR      (1U <<  6U)
-#define FLAGS_SHORT     (1U <<  7U)
-#define FLAGS_LONG      (1U <<  8U)
-#define FLAGS_LONG_LONG (1U <<  9U)
-#define FLAGS_PRECISION (1U << 10U)
-#define FLAGS_ADAPT_EXP (1U << 11U)
+#define FMT_FLAG_ZEROPAD   (1U <<  0U)
+#define FMT_FLAG_LEFT      (1U <<  1U)
+#define FMT_FLAG_PLUS      (1U <<  2U)
+#define FMT_FLAG_SPACE     (1U <<  3U)
+#define FMT_FLAG_HASH      (1U <<  4U)
+#define FMT_FLAG_UPPERCASE (1U <<  5U)
+#define FMT_FLAG_CHAR      (1U <<  6U)
+#define FMT_FLAG_SHORT     (1U <<  7U)
+#define FMT_FLAG_LONG      (1U <<  8U)
+#define FMT_FLAG_LONG_LONG (1U <<  9U)
+#define FMT_FLAG_PRECISION (1U << 10U)
+#define FMT_FLAG_ADAPT_EXP (1U << 11U)
 
 struct ctx {
     fmt_fct_t    fct;
@@ -170,7 +170,7 @@ static void _out_rev(struct fmt_state state, const char *buf, size_t len) {
     const size_t start_idx = state.ctx->idx;
 
     // pad spaces up to given width
-    if (!(state.flags & FLAGS_LEFT) && !(state.flags & FLAGS_ZEROPAD)) {
+    if (!(state.flags & FMT_FLAG_LEFT) && !(state.flags & FMT_FLAG_ZEROPAD)) {
         for (size_t i = len; i < state.width; i++) {
             out(' ', state.ctx);
         }
@@ -182,7 +182,7 @@ static void _out_rev(struct fmt_state state, const char *buf, size_t len) {
     }
 
     // append pad spaces up to given width
-    if (state.flags & FLAGS_LEFT) {
+    if (state.flags & FMT_FLAG_LEFT) {
         while (state.ctx->idx - start_idx < state.width) {
             out(' ', state.ctx);
         }
@@ -193,29 +193,29 @@ static void _out_rev(struct fmt_state state, const char *buf, size_t len) {
 // internal itoa format
 static void _ntoa_format(struct fmt_state state, char *buf, size_t len, bool negative, unsigned int base) {
     // pad leading zeros
-    if (!(state.flags & FLAGS_LEFT)) {
-        if (state.width && (state.flags & FLAGS_ZEROPAD) && (negative || (state.flags & (FLAGS_PLUS | FLAGS_SPACE)))) {
+    if (!(state.flags & FMT_FLAG_LEFT)) {
+        if (state.width && (state.flags & FMT_FLAG_ZEROPAD) && (negative || (state.flags & (FMT_FLAG_PLUS | FMT_FLAG_SPACE)))) {
             state.width--;
         }
         while ((len < state.precision) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
             buf[len++] = '0';
         }
-        while ((state.flags & FLAGS_ZEROPAD) && (len < state.width) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
+        while ((state.flags & FMT_FLAG_ZEROPAD) && (len < state.width) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
             buf[len++] = '0';
         }
     }
 
     // handle hash
-    if (state.flags & FLAGS_HASH) {
-        if (!(state.flags & FLAGS_PRECISION) && len && ((len == state.precision) || (len == state.width))) {
+    if (state.flags & FMT_FLAG_HASH) {
+        if (!(state.flags & FMT_FLAG_PRECISION) && len && ((len == state.precision) || (len == state.width))) {
             len--;
             if (len && (base == 16U)) {
                 len--;
             }
         }
-        if ((base == 16U) && !(state.flags & FLAGS_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
+        if ((base == 16U) && !(state.flags & FMT_FLAG_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
             buf[len++] = 'x';
-        } else if ((base == 16U) && (state.flags & FLAGS_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
+        } else if ((base == 16U) && (state.flags & FMT_FLAG_UPPERCASE) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
             buf[len++] = 'X';
         } else if ((base == 2U) && (len < PICO_PRINTF_NTOA_BUFFER_SIZE)) {
             buf[len++] = 'b';
@@ -228,9 +228,9 @@ static void _ntoa_format(struct fmt_state state, char *buf, size_t len, bool neg
     if (len < PICO_PRINTF_NTOA_BUFFER_SIZE) {
         if (negative) {
             buf[len++] = '-';
-        } else if (state.flags & FLAGS_PLUS) {
+        } else if (state.flags & FMT_FLAG_PLUS) {
             buf[len++] = '+';  // ignore the space if the '+' exists
-        } else if (state.flags & FLAGS_SPACE) {
+        } else if (state.flags & FMT_FLAG_SPACE) {
             buf[len++] = ' ';
         }
     }
@@ -246,14 +246,14 @@ static void _ntoa_long(struct fmt_state state, unsigned long value, bool negativ
 
     // no hash for 0 values
     if (!value) {
-        state.flags &= ~FLAGS_HASH;
+        state.flags &= ~FMT_FLAG_HASH;
     }
 
     // write if precision != 0 and value is != 0
-    if (!(state.flags & FLAGS_PRECISION) || value) {
+    if (!(state.flags & FMT_FLAG_PRECISION) || value) {
         do {
             const char digit = (char) (value % base);
-            buf[len++] = (char)(digit < 10 ? '0' + digit : (state.flags & FLAGS_UPPERCASE ? 'A' : 'a') + digit - 10);
+            buf[len++] = (char)(digit < 10 ? '0' + digit : (state.flags & FMT_FLAG_UPPERCASE ? 'A' : 'a') + digit - 10);
             value /= base;
         } while (value && (len < PICO_PRINTF_NTOA_BUFFER_SIZE));
     }
@@ -271,14 +271,14 @@ static void _ntoa_long_long(struct fmt_state state, unsigned long long value, bo
 
     // no hash for 0 values
     if (!value) {
-        state.flags &= ~FLAGS_HASH;
+        state.flags &= ~FMT_FLAG_HASH;
     }
 
     // write if precision != 0 and value is != 0
-    if (!(state.flags & FLAGS_PRECISION) || value) {
+    if (!(state.flags & FMT_FLAG_PRECISION) || value) {
         do {
             const char digit = (char) (value % base);
-            buf[len++] = (char)(digit < 10 ? '0' + digit : (state.flags & FLAGS_UPPERCASE ? 'A' : 'a') + digit - 10);
+            buf[len++] = (char)(digit < 10 ? '0' + digit : (state.flags & FMT_FLAG_UPPERCASE ? 'A' : 'a') + digit - 10);
             value /= base;
         } while (value && (len < PICO_PRINTF_NTOA_BUFFER_SIZE));
     }
@@ -317,7 +317,7 @@ static void _ftoa(struct fmt_state state, double value) {
         return;
     }
     if (value > DBL_MAX) {
-        _out_rev(state, (state.flags & FLAGS_PLUS) ? "fni+" : "fni", (state.flags & FLAGS_PLUS) ? 4U : 3U);
+        _out_rev(state, (state.flags & FMT_FLAG_PLUS) ? "fni+" : "fni", (state.flags & FMT_FLAG_PLUS) ? 4U : 3U);
         return;
     }
 
@@ -338,7 +338,7 @@ static void _ftoa(struct fmt_state state, double value) {
     }
 
     // set default precision, if not set explicitly
-    if (!(state.flags & FLAGS_PRECISION)) {
+    if (!(state.flags & FMT_FLAG_PRECISION)) {
         state.precision = PICO_PRINTF_DEFAULT_FLOAT_PRECISION;
     }
     // limit precision to 9, cause a prec >= 10 can lead to overflow errors
@@ -401,8 +401,8 @@ static void _ftoa(struct fmt_state state, double value) {
     }
 
     // pad leading zeros
-    if (!(state.flags & FLAGS_LEFT) && (state.flags & FLAGS_ZEROPAD)) {
-        if (state.width && (negative || (state.flags & (FLAGS_PLUS | FLAGS_SPACE)))) {
+    if (!(state.flags & FMT_FLAG_LEFT) && (state.flags & FMT_FLAG_ZEROPAD)) {
+        if (state.width && (negative || (state.flags & (FMT_FLAG_PLUS | FMT_FLAG_SPACE)))) {
             state.width--;
         }
         while ((len < state.width) && (len < PICO_PRINTF_FTOA_BUFFER_SIZE)) {
@@ -413,9 +413,9 @@ static void _ftoa(struct fmt_state state, double value) {
     if (len < PICO_PRINTF_FTOA_BUFFER_SIZE) {
         if (negative) {
             buf[len++] = '-';
-        } else if (state.flags & FLAGS_PLUS) {
+        } else if (state.flags & FMT_FLAG_PLUS) {
             buf[len++] = '+';  // ignore the space if the '+' exists
-        } else if (state.flags & FLAGS_SPACE) {
+        } else if (state.flags & FMT_FLAG_SPACE) {
             buf[len++] = ' ';
         }
     }
@@ -441,7 +441,7 @@ static void _etoa(struct fmt_state state, double value) {
     }
 
     // default precision
-    if (!(state.flags & FLAGS_PRECISION)) {
+    if (!(state.flags & FMT_FLAG_PRECISION)) {
         state.precision = PICO_PRINTF_DEFAULT_FLOAT_PRECISION;
     }
 
@@ -479,7 +479,7 @@ static void _etoa(struct fmt_state state, double value) {
     unsigned int minwidth = ((expval < 100) && (expval > -100)) ? 4U : 5U;
 
     // in "%g" mode, "state.precision" is the number of *significant figures* not decimals
-    if (state.flags & FLAGS_ADAPT_EXP) {
+    if (state.flags & FMT_FLAG_ADAPT_EXP) {
         // do we want to fall-back to "%f" mode?
         if ((conv.U == 0) || ((value >= 1e-4) && (value < 1e6))) {
             if ((int) state.precision > expval) {
@@ -487,13 +487,13 @@ static void _etoa(struct fmt_state state, double value) {
             } else {
                 state.precision = 0;
             }
-            state.flags |= FLAGS_PRECISION;   // make sure _ftoa respects precision
+            state.flags |= FMT_FLAG_PRECISION;   // make sure _ftoa respects precision
             // no characters in exponent
             minwidth = 0U;
             expval = 0;
         } else {
             // we use one sigfig for the whole part
-            if ((state.precision > 0) && (state.flags & FLAGS_PRECISION)) {
+            if ((state.precision > 0) && (state.flags & FMT_FLAG_PRECISION)) {
                 --state.precision;
             }
         }
@@ -508,7 +508,7 @@ static void _etoa(struct fmt_state state, double value) {
         // not enough characters, so go back to default sizing
         fwidth = 0U;
     }
-    if ((state.flags & FLAGS_LEFT) && minwidth) {
+    if ((state.flags & FMT_FLAG_LEFT) && minwidth) {
         // if we're padding on the right, DON'T pad the floating part
         fwidth = 0U;
     }
@@ -523,7 +523,7 @@ static void _etoa(struct fmt_state state, double value) {
     struct fmt_state substate = {
         .width = fwidth,
         .precision = state.precision,
-        .flags = state.flags & ~FLAGS_ADAPT_EXP,
+        .flags = state.flags & ~FMT_FLAG_ADAPT_EXP,
         .ctx = state.ctx,
     };
     _ftoa(substate, negative ? -value : value);
@@ -531,17 +531,17 @@ static void _etoa(struct fmt_state state, double value) {
     // output the exponent part
     if (minwidth) {
         // output the exponential symbol
-        out((state.flags & FLAGS_UPPERCASE) ? 'E' : 'e', state.ctx);
+        out((state.flags & FMT_FLAG_UPPERCASE) ? 'E' : 'e', state.ctx);
         // output the exponent value
         struct fmt_state substate = {
             .width = minwidth - 1,
             .precision = 0,
-            .flags = FLAGS_ZEROPAD | FLAGS_PLUS,
+            .flags = FMT_FLAG_ZEROPAD | FMT_FLAG_PLUS,
             .ctx = state.ctx,
         };
         _ntoa_long(substate, (unsigned int)((expval < 0) ? -expval : expval), expval < 0, 10);
         // might need to right-pad spaces
-        if (state.flags & FLAGS_LEFT) {
+        if (state.flags & FMT_FLAG_LEFT) {
             while (state.ctx->idx - start_idx < state.width) out(' ', state.ctx);
         }
     }
@@ -578,27 +578,27 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
         do {
             switch (*format) {
                 case '0':
-                    state.flags |= FLAGS_ZEROPAD;
+                    state.flags |= FMT_FLAG_ZEROPAD;
                     format++;
                     n = 1U;
                     break;
                 case '-':
-                    state.flags |= FLAGS_LEFT;
+                    state.flags |= FMT_FLAG_LEFT;
                     format++;
                     n = 1U;
                     break;
                 case '+':
-                    state.flags |= FLAGS_PLUS;
+                    state.flags |= FMT_FLAG_PLUS;
                     format++;
                     n = 1U;
                     break;
                 case ' ':
-                    state.flags |= FLAGS_SPACE;
+                    state.flags |= FMT_FLAG_SPACE;
                     format++;
                     n = 1U;
                     break;
                 case '#':
-                    state.flags |= FLAGS_HASH;
+                    state.flags |= FMT_FLAG_HASH;
                     format++;
                     n = 1U;
                     break;
@@ -615,7 +615,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
         } else if (*format == '*') {
             const int w = va_arg(va, int);
             if (w < 0) {
-                state.flags |= FLAGS_LEFT;    // reverse padding
+                state.flags |= FMT_FLAG_LEFT;    // reverse padding
                 state.width = (unsigned int) -w;
             } else {
                 state.width = (unsigned int) w;
@@ -626,7 +626,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
         // evaluate precision field
         state.precision = 0U;
         if (*format == '.') {
-            state.flags |= FLAGS_PRECISION;
+            state.flags |= FMT_FLAG_PRECISION;
             format++;
             if (_is_digit(*format)) {
                 state.precision = _atoi(&format);
@@ -640,33 +640,33 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
         // evaluate length field
         switch (*format) {
             case 'l' :
-                state.flags |= FLAGS_LONG;
+                state.flags |= FMT_FLAG_LONG;
                 format++;
                 if (*format == 'l') {
-                    state.flags |= FLAGS_LONG_LONG;
+                    state.flags |= FMT_FLAG_LONG_LONG;
                     format++;
                 }
                 break;
             case 'h' :
-                state.flags |= FLAGS_SHORT;
+                state.flags |= FMT_FLAG_SHORT;
                 format++;
                 if (*format == 'h') {
-                    state.flags |= FLAGS_CHAR;
+                    state.flags |= FMT_FLAG_CHAR;
                     format++;
                 }
                 break;
 #if PICO_PRINTF_SUPPORT_PTRDIFF_T
             case 't' :
-                state.flags |= (sizeof(ptrdiff_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
+                state.flags |= (sizeof(ptrdiff_t) == sizeof(long) ? FMT_FLAG_LONG : FMT_FLAG_LONG_LONG);
                 format++;
                 break;
 #endif
             case 'j' :
-                state.flags |= (sizeof(intmax_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
+                state.flags |= (sizeof(intmax_t) == sizeof(long) ? FMT_FLAG_LONG : FMT_FLAG_LONG_LONG);
                 format++;
                 break;
             case 'z' :
-                state.flags |= (sizeof(size_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
+                state.flags |= (sizeof(size_t) == sizeof(long) ? FMT_FLAG_LONG : FMT_FLAG_LONG_LONG);
                 format++;
                 break;
             default :
@@ -692,51 +692,51 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                     base = 2U;
                 } else {
                     base = 10U;
-                    state.flags &= ~FLAGS_HASH;   // no hash for dec format
+                    state.flags &= ~FMT_FLAG_HASH;   // no hash for dec format
                 }
                 // uppercase
                 if (*format == 'X') {
-                    state.flags |= FLAGS_UPPERCASE;
+                    state.flags |= FMT_FLAG_UPPERCASE;
                 }
 
                 // no plus or space flag for u, x, X, o, b
                 if ((*format != 'i') && (*format != 'd')) {
-                    state.flags &= ~(FLAGS_PLUS | FLAGS_SPACE);
+                    state.flags &= ~(FMT_FLAG_PLUS | FMT_FLAG_SPACE);
                 }
 
                 // ignore '0' flag when precision is given
-                if (state.flags & FLAGS_PRECISION) {
-                    state.flags &= ~FLAGS_ZEROPAD;
+                if (state.flags & FMT_FLAG_PRECISION) {
+                    state.flags &= ~FMT_FLAG_ZEROPAD;
                 }
 
                 // convert the integer
                 if ((*format == 'i') || (*format == 'd')) {
                     // signed
-                    if (state.flags & FLAGS_LONG_LONG) {
+                    if (state.flags & FMT_FLAG_LONG_LONG) {
 #if PICO_PRINTF_SUPPORT_LONG_LONG
                         const long long value = va_arg(va, long long);
                         _ntoa_long_long(state, (unsigned long long) (value > 0 ? value : 0 - value), value < 0, base);
 #endif
-                    } else if (state.flags & FLAGS_LONG) {
+                    } else if (state.flags & FMT_FLAG_LONG) {
                         const long value = va_arg(va, long);
                         _ntoa_long(state, (unsigned long) (value > 0 ? value : 0 - value), value < 0, base);
                     } else {
-                        const int value = (state.flags & FLAGS_CHAR)  ? (char)      va_arg(va, int)
-                                        : (state.flags & FLAGS_SHORT) ? (short int) va_arg(va, int)
+                        const int value = (state.flags & FMT_FLAG_CHAR)  ? (char)      va_arg(va, int)
+                                        : (state.flags & FMT_FLAG_SHORT) ? (short int) va_arg(va, int)
                                         :                                           va_arg(va, int);
                         _ntoa_long(state, (unsigned int) (value > 0 ? value : 0 - value), value < 0, base);
                     }
                 } else {
                     // unsigned
-                    if (state.flags & FLAGS_LONG_LONG) {
+                    if (state.flags & FMT_FLAG_LONG_LONG) {
 #if PICO_PRINTF_SUPPORT_LONG_LONG
                         _ntoa_long_long(state, va_arg(va, unsigned long long), false, base);
 #endif
-                    } else if (state.flags & FLAGS_LONG) {
+                    } else if (state.flags & FMT_FLAG_LONG) {
                         _ntoa_long(state, va_arg(va, unsigned long), false, base);
                     } else {
-                        const unsigned int value = (state.flags & FLAGS_CHAR)  ? (unsigned char)      va_arg(va, unsigned int)
-                                                 : (state.flags & FLAGS_SHORT) ? (unsigned short int) va_arg(va, unsigned int)
+                        const unsigned int value = (state.flags & FMT_FLAG_CHAR)  ? (unsigned char)      va_arg(va, unsigned int)
+                                                 : (state.flags & FMT_FLAG_SHORT) ? (unsigned short int) va_arg(va, unsigned int)
                                                  :                                                    va_arg(va, unsigned int);
                         _ntoa_long(state, value, false, base);
                     }
@@ -747,7 +747,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
             case 'f' :
             case 'F' :
 #if PICO_PRINTF_SUPPORT_FLOAT
-                if (*format == 'F') state.flags |= FLAGS_UPPERCASE;
+                if (*format == 'F') state.flags |= FMT_FLAG_UPPERCASE;
                 _ftoa(state, va_arg(va, double));
 #else
                 for(int i=0;i<2;i++) out('?', state.ctx);
@@ -760,8 +760,8 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
             case 'g':
             case 'G':
 #if PICO_PRINTF_SUPPORT_FLOAT && PICO_PRINTF_SUPPORT_EXPONENTIAL
-                if ((*format == 'g') || (*format == 'G')) state.flags |= FLAGS_ADAPT_EXP;
-                if ((*format == 'E') || (*format == 'G')) state.flags |= FLAGS_UPPERCASE;
+                if ((*format == 'g') || (*format == 'G')) state.flags |= FMT_FLAG_ADAPT_EXP;
+                if ((*format == 'E') || (*format == 'G')) state.flags |= FMT_FLAG_UPPERCASE;
                 _etoa(state, va_arg(va, double));
 #else
                 for(int i=0;i<2;i++) out('?', state.ctx);
@@ -772,7 +772,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
             case 'c' : {
                 unsigned int l = 1U;
                 // pre padding
-                if (!(state.flags & FLAGS_LEFT)) {
+                if (!(state.flags & FMT_FLAG_LEFT)) {
                     while (l++ < state.width) {
                         out(' ', state.ctx);
                     }
@@ -780,7 +780,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                 // char output
                 out((char) va_arg(va, int), state.ctx);
                 // post padding
-                if (state.flags & FLAGS_LEFT) {
+                if (state.flags & FMT_FLAG_LEFT) {
                     while (l++ < state.width) {
                         out(' ', state.ctx);
                     }
@@ -793,20 +793,20 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
                 const char *p = va_arg(va, char*);
                 unsigned int l = _strnlen_s(p, state.precision ? state.precision : (size_t) -1);
                 // pre padding
-                if (state.flags & FLAGS_PRECISION) {
+                if (state.flags & FMT_FLAG_PRECISION) {
                     l = (l < state.precision ? l : state.precision);
                 }
-                if (!(state.flags & FLAGS_LEFT)) {
+                if (!(state.flags & FMT_FLAG_LEFT)) {
                     while (l++ < state.width) {
                         out(' ', state.ctx);
                     }
                 }
                 // string output
-                while ((*p != 0) && (!(state.flags & FLAGS_PRECISION) || state.precision--)) {
+                while ((*p != 0) && (!(state.flags & FMT_FLAG_PRECISION) || state.precision--)) {
                     out(*(p++), state.ctx);
                 }
                 // post padding
-                if (state.flags & FLAGS_LEFT) {
+                if (state.flags & FMT_FLAG_LEFT) {
                     while (l++ < state.width) {
                         out(' ', state.ctx);
                     }
@@ -817,7 +817,7 @@ int fmt_vfctprintf(fmt_fct_t fct, void *arg, const char *format, va_list va) {
 
             case 'p' : {
                 state.width = sizeof(void *) * 2U;
-                state.flags |= FLAGS_ZEROPAD | FLAGS_UPPERCASE;
+                state.flags |= FMT_FLAG_ZEROPAD | FMT_FLAG_UPPERCASE;
 #if PICO_PRINTF_SUPPORT_LONG_LONG
                 const bool is_ll = sizeof(uintptr_t) == sizeof(long long);
                 if (is_ll) {
