@@ -27,6 +27,11 @@ of [Marco Paland's `printf`](https://github.com/mpaland/printf).
 
 You do not need to use pico-sdk to use `pico_fmt`.
 
+# Enhancements and changes compared to pico-sdk
+
+ - The CMake function `pico_set_printf_implementation()` may be called
+   on an OBJECT_LIBRARY, not just an EXECUTABLE.
+
 # Usage
 
 ## Without pico-sdk
